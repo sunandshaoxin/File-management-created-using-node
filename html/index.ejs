@@ -1,0 +1,227 @@
+<!DOCTYPE html>
+<html lang="zh">
+<head>
+    <meta charset="UTF-8">
+    <title>文件管理器</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            background-color: #f4f4f9;
+            margin: 0;
+            padding: 20px;
+        }
+        h1 {
+            color: #333;
+            text-align: center;
+        }
+        .container {
+            max-width: 800px;
+            margin: 0 auto;
+        }
+        .top-actions {
+            display: flex;
+            justify-content: center;
+            margin-bottom: 20px;
+        }
+        .top-actions a {
+            padding: 10px 20px;
+            margin: 0 10px;
+            border: none;
+            border-radius: 5px;
+            background-color: #007bff;
+            color: #fff;
+            cursor: pointer;
+            text-decoration: none;
+        }
+        .top-actions a:hover {
+            background-color: #0056b3;
+        }
+        .path {
+            margin-bottom: 10px;
+            text-align: center;
+        }
+        .item-list {
+            list-style-type: none;
+            padding: 0;
+        }
+        .item-list li {
+            background-color: #fff;
+            margin: 5px 0;
+            padding: 10px;
+            border: 1px solid #ddd;
+            border-radius: 5px;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+        .item-list li:hover {
+            background-color: #f0f0f0;
+        }
+        .modal {
+            display: none;
+            position: fixed;
+            z-index: 1;
+            left: 0;
+            top: 0;
+            width: 100%;
+            height: 100%;
+            overflow: auto;
+            background-color: rgba(0, 0, 0, 0.4);
+        }
+        .modal-content {
+            background-color: #fff;
+            margin: 15% auto;
+            padding: 20px;
+            border: 1px solid #888;
+            width: 80%;
+            max-width: 500px;
+            border-radius: 5px;
+        }
+        .close {
+            color: #aaa;
+            float: right;
+            font-size: 28px;
+            font-weight: bold;
+            cursor: pointer;
+        }
+        .close:hover,
+        .close:focus {
+            color: black;
+            text-decoration: none;
+        }
+        .file-actions {
+            display: flex;
+        }
+        .file-actions form {
+            margin-left: 10px;
+        }
+        .file-actions button {
+            padding: 5px 10px;
+            margin-left: 5px;
+            border: none;
+            border-radius: 3px;
+            background-color: #28a745;
+            color: #fff;
+            cursor: pointer;
+        }
+        .file-actions button:hover {
+            background-color: #218838;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>文件管理器</h1>
+        <div class="top-actions">
+            <a href="#" onclick="goBack()">返回上一级</a>
+            <a href="#" onclick="showUploadModal()">上传</a>
+            <a href="#" onclick="showCreateModal()">创建</a>
+        </div>
+        <div class="path">当前位置：<%= current_path %></div>
+        <ul class="item-list">
+            <% items.forEach(function(item) { %>
+            <li>
+                <span><%= item.item %> (<%= item.item_type %>)</span>
+                <div class="file-actions">
+                    <% if (item.item_type === '文件') { %>
+                    <form action="/download/<%= item.item %>?path=<%= current_path %>" method="get">
+                        <button type="submit">下载</button>
+                    </form>
+                    <form action="/delete/<%= item.item %>" method="post">
+                        <input type="hidden" name="path" value="<%= current_path %>">
+                        <button type="submit">删除</button>
+                    </form>
+                    <button onclick="showRenameModal('<%= item.item %>')">重命名</button>
+                    <% } else { %>
+                    <form action="/open_folder/<%= item.item_path %>" method="get">
+                        <button type="submit">打开</button>
+                    </form>
+                    <form action="/delete/<%= item.item %>" method="post">
+                        <input type="hidden" name="path" value="<%= current_path %>">
+                        <button type="submit">删除</button>
+                    </form>
+                    <button onclick="showRenameModal('<%= item.item %>')">重命名</button>
+                    <form action="/download_folder/<%= item.item %>?path=<%= current_path %>" method="get">
+                        <button type="submit">下载文件夹</button>
+                    </form>
+                    <% } %>
+                </div>
+            </li>
+            <% }); %>
+        </ul>
+    </div>
+
+    <!-- 弹出框模板 -->
+    <div id="uploadModal" class="modal">
+        <div class="modal-content">
+            <span class="close" onclick="closeModal('uploadModal')">&times;</span>
+            <h2>上传文件</h2>
+            <form action="/upload" method="post" enctype="multipart/form-data">
+                <input type="hidden" name="path" value="<%= current_path %>">
+                <input type="file" name="file">
+                <button type="submit">上传</button>
+            </form>
+            <h2>上传文件夹</h2>
+            <form action="/upload_folder" method="post" enctype="multipart/form-data">
+                <input type="hidden" name="path" value="<%= current_path %>">
+                <input type="file" name="files" webkitdirectory multiple>
+                <button type="submit">上传文件夹</button>
+            </form>
+        </div>
+    </div>
+
+    <div id="createModal" class="modal">
+        <div class="modal-content">
+            <span class="close" onclick="closeModal('createModal')">&times;</span>
+            <h2>创建文件或文件夹</h2>
+            <form action="/create_file" method="post">
+                <input type="hidden" name="path" value="<%= current_path %>">
+                <input type="text" name="file_name" placeholder="文件名">
+                <button type="submit">创建文件</button>
+            </form>
+            <form action="/create_folder" method="post">
+                <input type="hidden" name="path" value="<%= current_path %>">
+                <input type="text" name="folder_name" placeholder="文件夹名">
+                <button type="submit">创建文件夹</button>
+            </form>
+        </div>
+    </div>
+
+    <div id="renameModal" class="modal">
+        <div class="modal-content">
+            <span class="close" onclick="closeModal('renameModal')">&times;</span>
+            <h2>重命名</h2>
+            <form action="/rename" method="post">
+                <input type="hidden" name="path" value="<%= current_path %>">
+                <input type="text" name="old_name" id="old_name" readonly>
+                <input type="text" name="new_name" placeholder="新名称">
+                <button type="submit">重命名</button>
+            </form>
+        </div>
+    </div>
+
+    <script>
+        function goBack() {
+            const parentPath = '<%= parent_path %>';
+            window.location.href = `/?path=${parentPath}`;
+        }
+
+        function showUploadModal() {
+            document.getElementById('uploadModal').style.display = 'block';
+        }
+
+        function showCreateModal() {
+            document.getElementById('createModal').style.display = 'block';
+        }
+
+        function showRenameModal(oldName) {
+            document.getElementById('old_name').value = oldName;
+            document.getElementById('renameModal').style.display = 'block';
+        }
+
+        function closeModal(modalId) {
+            document.getElementById(modalId).style.display = 'none';
+        }
+    </script>
+</body>
+</html>
